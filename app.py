@@ -60,6 +60,25 @@ def init_db():
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+
+    # Add this to your existing database tables
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS final_gpa_records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            first_semester_gpa REAL NOT NULL,
+            second_semester_gpa REAL NOT NULL,
+            final_gpa REAL NOT NULL,
+            status TEXT NOT NULL,
+            notes TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+    ''')
+
+
+    
     
     conn.commit()
     conn.close()
@@ -404,6 +423,159 @@ def logout():
     session.clear()
     flash('Logged out successfully', 'success')
     return redirect(url_for('welcome'))
+
+
+
+
+
+
+
+
+@app.route('/final-calculation')
+@login_required
+def final_calculation():
+    # Get saved records to populate semester selection
+    conn = get_db_connection()
+    saved_records = conn.execute(
+        'SELECT * FROM saved_records WHERE user_id = ? ORDER BY created_at DESC',
+        (session['user_id'],)
+    ).fetchall()
+    conn.close()
+    return render_template('final_calculation.html', saved_records=saved_records)
+
+@app.route('/calculate-final-gpa', methods=['POST'])
+@login_required
+def calculate_final_gpa():
+    data = request.get_json()
+    first_semester_id = data.get('first_semester_id')
+    second_semester_id = data.get('second_semester_id')
+    
+    conn = get_db_connection()
+    
+    # Get first semester GPA
+    first_semester = conn.execute(
+        'SELECT * FROM saved_records WHERE id = ? AND user_id = ?',
+        (first_semester_id, session['user_id'])
+    ).fetchone()
+    
+    # Get second semester GPA
+    second_semester = conn.execute(
+        'SELECT * FROM saved_records WHERE id = ? AND user_id = ?',
+        (second_semester_id, session['user_id'])
+    ).fetchone()
+    
+    if not first_semester or not second_semester:
+        conn.close()
+        return jsonify({'success': False, 'message': 'One or both semester records not found'}), 400
+    
+    # Calculate final GPA
+    first_gpa = first_semester['gpa']
+    second_gpa = second_semester['gpa']
+    final_gpa = round((first_gpa + second_gpa) / 2, 2)
+    
+    # Determine status
+    if final_gpa >= 4.0:
+        status = "Excellent Pass"
+    elif final_gpa >= 3.0:
+        status = "Pass"
+    elif final_gpa >= 2.7:
+        status = "Fail"
+    else:
+        status = "Withdrew"
+    
+    session['final_calculation'] = {
+        'first_semester': dict(first_semester),
+        'second_semester': dict(second_semester),
+        'first_gpa': first_gpa,
+        'second_gpa': second_gpa,
+        'final_gpa': final_gpa,
+        'status': status
+    }
+    
+    conn.close()
+    
+    return jsonify({
+        'success': True,
+        'first_gpa': first_gpa,
+        'second_gpa': second_gpa,
+        'final_gpa': final_gpa,
+        'status': status,
+        'message': f'Final GPA: {final_gpa} - {status}'
+    })
+
+@app.route('/save-final-gpa', methods=['POST'])
+@login_required
+def save_final_gpa():
+    calculation = session.get('final_calculation')
+    if not calculation:
+        return jsonify({'success': False, 'message': 'No calculation to save'}), 400
+    
+    title = request.form.get('title')
+    notes = request.form.get('notes', '')
+    
+    if not title:
+        return jsonify({'success': False, 'message': 'Title is required'}), 400
+    
+    conn = get_db_connection()
+    
+    # Save final GPA record
+    conn.execute(
+        'INSERT INTO final_gpa_records (user_id, title, first_semester_gpa, second_semester_gpa, final_gpa, status, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        (session['user_id'], title, calculation['first_gpa'], calculation['second_gpa'], calculation['final_gpa'], calculation['status'], notes)
+    )
+    
+    # Log the save action
+    conn.execute(
+        'INSERT INTO save_actions (user_id, action, details) VALUES (?, ?, ?)',
+        (session['user_id'], 'save_final_gpa', f"Saved Final GPA: {title} - GPA: {calculation['final_gpa']}")
+    )
+    
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'success': True, 'message': 'Final GPA saved successfully!'})
+
+@app.route('/final-records')
+@login_required
+def final_records():
+    conn = get_db_connection()
+    records = conn.execute(
+        'SELECT * FROM final_gpa_records WHERE user_id = ? ORDER BY created_at DESC',
+        (session['user_id'],)
+    ).fetchall()
+    conn.close()
+    return render_template('final_records.html', records=records)
+
+
+@app.route('/delete-final-record/<int:record_id>', methods=['POST'])
+@login_required
+def delete_final_record(record_id):
+    conn = get_db_connection()
+    
+    # Get record info before deleting
+    record = conn.execute(
+        'SELECT * FROM final_gpa_records WHERE id = ? AND user_id = ?',
+        (record_id, session['user_id'])
+    ).fetchone()
+    
+    if not record:
+        flash('Record not found', 'error')
+        conn.close()
+        return redirect(url_for('final_records'))
+    
+    # Log the delete action
+    conn.execute(
+        'INSERT INTO save_actions (user_id, action, details) VALUES (?, ?, ?)',
+        (session['user_id'], 'delete_final_record', f"Deleted Final GPA record: {record['title']} - GPA: {record['final_gpa']}")
+    )
+    
+    # Delete the record
+    conn.execute('DELETE FROM final_gpa_records WHERE id = ?', (record_id,))
+    conn.commit()
+    conn.close()
+    
+    flash('Final record deleted successfully', 'success')
+    return redirect(url_for('final_records'))
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
