@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="dashboard">
+    <header class="dashboard-header">
+        <div class="header-content">
+            <div style="display: flex; align-items: center; margin-bottom: 1rem;">
+                <div class="logo-small">
+                    <img src="{{ url_for('static', filename='images/mmtu-logo.png') }}" 
+                         alt="MMTU Logo" 
+                         onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\'text-align: center; padding: 5px;\'><strong>MMTU</strong></div>';">
+                </div>
+                <div>
+                    <h1>Welcome, {{ session.student_name }}!</h1>
+                    <p class="student-id">Student ID: {{ session.student_id }}</p>
+                    <p class="student-id">Department: {{ user.department if user else 'Not specified' }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="header-actions">
+            <a href="{{ url_for('logout') }}" class="btn-logout">
+                Logout
+            </a>
+        </div>
+    </header>
+
+    <div class="dashboard-grid">
+        <a href="{{ url_for('set_modules') }}" class="dashboard-card">
+            <h3>📊 Set Modules</h3>
+            <p>Choose how many modules you want to calculate for this semester</p>
+        </a>
+        
+        <a href="{{ url_for('modules_input') }}" class="dashboard-card">
+            <h3>🎓 Enter Grades</h3>
+            <p>Input your grades and mark reference modules for calculation</p>
+        </a>
+        
+        <a href="{{ url_for('saved_records') }}" class="dashboard-card">
+            <h3>📁 Saved Records</h3>
+            <p>View and manage your previously saved GPA calculations</p>
+        </a>
+        
+        <a href="{{ url_for('profile') }}" class="dashboard-card">
+            <h3>👤 Profile</h3>
+            <p>Update your personal information and change password</p>
+        </a>
+    </div>
+
+    <div class="quick-help">
+        <h3>🚀 How it works:</h3>
+        <ul>
+            <li>Mark modules as references to step grades down by one level</li>
+            <li>E or F grades block calculation - contact your faculty</li>
+            <li>Save your results with descriptive titles for future reference</li>
+        </ul>
+        
+        <h3>🎯 GPA Classification:</h3>
+        <ul>
+            <li>4.0+ → Excellent Pass 🏆</li>
+            <li>3.0 - 3.99 → Pass ✅</li>
+            <li>2.7 - 2.99 → Fail ⚠️</li>
+            <li>Below 2.7 → Withdrew ❌</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

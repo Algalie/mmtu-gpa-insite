@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="record-detail">
+        <h1>{{ record.title }}</h1>
+        <div class="record-meta">
+            <span>Saved on: {{ record.created_at[:16] }}</span>
+            {% if record.semester %}
+            <span>Semester: {{ record.semester }}</span>
+            {% endif %}
+        </div>
+        
+        <div class="gpa-display-small">{{ record.gpa }}</div>
+        <div class="status-message">{{ record.status }}</div>
+        
+        {% if record.notes %}
+        <div class="notes-section">
+            <h3>Notes:</h3>
+            <p>{{ record.notes }}</p>
+        </div>
+        {% endif %}
+        
+        <div class="modules-detail">
+            <h3>Module Grades:</h3>
+            {% for module in record.modules %}
+            <div class="module-detail-item">
+                <div class="module-header">
+                    <strong>{{ module.label }}</strong>
+                    {% if module.code %}({{ module.code }}){% endif %}
+                </div>
+                <div class="module-grades">
+                    Grade: {{ module.grade }}
+                    {% if module.reference %}
+                    → <span class="adjusted-grade">{{ module.grade_after if module.grade_after else 'Adjusted' }}</span>
+                    <small>(Reference)</small>
+                    {% endif %}
+                    <span class="credits">({{ module.credit }} credits)</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <div class="form-actions">
+        <a href="{{ url_for('saved_records') }}" class="btn btn-secondary">Back to Records</a>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Back to Dashboard</a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h1>Enter Grades & References</h1>
+    <p class="subtitle">Number of modules: {{ num_modules }}</p>
+    
+    <form id="modulesForm">
+        <div id="modulesContainer" class="modules-container">
+            <!-- Dynamic modules will be inserted here by JavaScript -->
+        </div>
+        
+        <div class="blocked-message" id="blockedMessage" style="display: none;">
+            <h3>❌ Calculation Disabled</h3>
+            <p>One or more modules contain grade E or F. You have a reference to clear. Please contact your faculty.</p>
+        </div>
+        
+        <div class="form-actions">
+            <button type="button" id="calculateBtn" class="btn btn-primary">Calculate GPA</button>
+            <button type="reset" class="btn btn-secondary">Reset</button>
+            <a href="{{ url_for('set_modules') }}" class="btn btn-secondary">Change Module Count</a>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Back to Dashboard</a>
+        </div>
+    </form>
+</div>
+
+<script>
+    // This script will run immediately when the page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Page loaded, rendering module rows...');
+        
+        const numModules = {{ num_modules }};
+        const container = document.getElementById('modulesContainer');
+        
+        // Clear container first
+        container.innerHTML = '';
+        
+        // Create module rows with dropdowns and checkboxes (credit hours removed)
+        for (let i = 1; i <= numModules; i++) {
+            const moduleRow = document.createElement('div');
+            moduleRow.className = 'module-row';
+            moduleRow.innerHTML = `
+                <div class="form-group">
+                    <label for="module_${i}_label"><strong>Module ${i}</strong></label>
+                    <input type="text" 
+                           class="module-code" 
+                           placeholder="Enter module code (optional)" 
+                           id="module_${i}_code"
+                           name="module_${i}_code">
+                </div>
+                
+                <div class="form-group">
+                    <label for="module_${i}_grade"><strong>Select Grade</strong></label>
+                    <select class="grade-select" 
+                            id="module_${i}_grade" 
+                            name="module_${i}_grade" 
+                            required>
+                        <option value="">-- Choose Grade --</option>
+                        <option value="A">A (5.0 points)</option>
+                        <option value="B">B (4.0 points)</option>
+                        <option value="C">C (3.0 points)</option>
+                        <option value="D">D (2.0 points)</option>
+                        <option value="E">E (1.0 points)</option>
+                        <option value="F">F (0.0 points)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group reference-toggle">
+                    <div class="checkbox-container">
+                        <input type="checkbox" 
+                               class="reference-checkbox" 
+                               id="module_${i}_reference" 
+                               name="module_${i}_reference">
+                        <label for="module_${i}_reference" class="checkbox-label">
+                            <strong>📝 Mark as Reference</strong>
+                        </label>
+                    </div>
+                    <small>If checked, grade will be stepped down by one level</small>
+                </div>
+            `;
+            
+            container.appendChild(moduleRow);
+        }
+        
+        console.log(`Rendered ${numModules} module rows with dropdowns and checkboxes`);
+        
+        // Setup event listeners
+        setupEventListeners();
+        checkForBlockingGrades(); // Initial check
+    });
+
+    // Event listeners setup
+    function setupEventListeners() {
+        // Check for E/F grades on any grade change
+        document.addEventListener('change', function(e) {
+            if (e.target.classList.contains('grade-select')) {
+                console.log('Grade changed to:', e.target.value);
+                checkForBlockingGrades();
+            }
+        });
+        
+        // Calculate button handler
+        const calculateBtn = document.getElementById('calculateBtn');
+        if (calculateBtn) {
+            calculateBtn.addEventListener('click', calculateGPA);
+            console.log('Calculate button event listener added');
+        }
+        
+        // Form reset handler
+        const resetBtn = document.querySelector('button[type="reset"]');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', function() {
+                setTimeout(checkForBlockingGrades, 100);
+            });
+        }
+    }
+
+    // Check for blocking grades (E or F)
+    function checkForBlockingGrades() {
+        const gradeSelects = document.querySelectorAll('.grade-select');
+        const blockedMessage = document.getElementById('blockedMessage');
+        const calculateBtn = document.getElementById('calculateBtn');
+        
+        let hasEF = false;
+        
+        gradeSelects.forEach(select => {
+            if (select.value === 'E' || select.value === 'F') {
+                hasEF = true;
+                console.log('Found E/F grade:', select.value);
+            }
+        });
+        
+        if (hasEF) {
+            blockedMessage.style.display = 'block';
+            if (calculateBtn) {
+                calculateBtn.disabled = true;
+                calculateBtn.style.opacity = '0.5';
+                calculateBtn.style.cursor = 'not-allowed';
+            }
+            console.log('Calculation blocked due to E/F grades');
+        } else {
+            blockedMessage.style.display = 'none';
+            if (calculateBtn) {
+                calculateBtn.disabled = false;
+                calculateBtn.style.opacity = '1';
+                calculateBtn.style.cursor = 'pointer';
+            }
+        }
+    }
+
+    // Calculate GPA function
+    function calculateGPA() {
+        console.log('Calculate GPA function called');
+        
+        const modules = collectModuleData();
+        console.log('Collected modules data:', modules);
+        
+        // Validate all grades are selected
+        let allGradesSelected = true;
+        const emptyGrades = [];
+        
+        modules.forEach((module, index) => {
+            if (!module.grade) {
+                allGradesSelected = false;
+                emptyGrades.push(index + 1);
+            }
+        });
+        
+        if (!allGradesSelected) {
+            alert(`❌ Please select grades for all modules.\nMissing grades in: Module ${emptyGrades.join(', Module ')}`);
+            return;
+        }
+        
+        const calculateBtn = document.getElementById('calculateBtn');
+        const originalText = calculateBtn.textContent;
+        
+        calculateBtn.disabled = true;
+        calculateBtn.textContent = 'Calculating...';
+        calculateBtn.style.opacity = '0.7';
+        
+        // Show loading state
+        document.body.style.cursor = 'wait';
+        
+        console.log('Sending calculation request to server...');
+        
+        // Send calculation request to server
+        fetch('/calculate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ modules: modules })
+        })
+        .then(response => {
+            console.log('Response status:', response.status);
+            if (!response.ok) {
+                return response.json().then(data => {
+                    throw new Error(data.message || 'Calculation failed');
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Calculation response from server:', data);
+            if (data.blocked) {
+                alert('❌ ' + data.message);
+            } else {
+                // Success - redirect to result page
+                console.log('Calculation successful, redirecting to result page');
+                window.location.href = '/result';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('❌ An error occurred during calculation: ' + error.message);
+        })
+        .finally(() => {
+            calculateBtn.disabled = false;
+            calculateBtn.textContent = originalText;
+            calculateBtn.style.opacity = '1';
+            document.body.style.cursor = 'default';
+        });
+    }
+
+    // Collect module data from form
+    function collectModuleData() {
+        const modules = [];
+        const moduleRows = document.querySelectorAll('.module-row');
+        
+        console.log(`Found ${moduleRows.length} module rows to collect data from`);
+        
+        moduleRows.forEach((row, index) => {
+            const codeInput = row.querySelector('.module-code');
+            const gradeSelect = row.querySelector('.grade-select');
+            const referenceCheckbox = row.querySelector('.reference-checkbox');
+            
+            const moduleData = {
+                label: `Module ${index + 1}`,
+                code: codeInput ? codeInput.value.trim() : '',
+                grade: gradeSelect ? gradeSelect.value : '',
+                reference: referenceCheckbox ? referenceCheckbox.checked : false,
+                credit: 3  // Still include credit in data, just don't display it
+            };
+            
+            console.log(`Module ${index + 1} data:`, moduleData);
+            modules.push(moduleData);
+        });
+        
+        return modules;
+    }
+</script>
+{% endblock %}

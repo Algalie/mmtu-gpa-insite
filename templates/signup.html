@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card">
+        <!-- MMTU Logo -->
+        <div class="mmtu-logo">
+            <img src="{{ url_for('static', filename='images/mmtu-logo.png') }}" 
+                 alt="MMTU Logo" 
+                 onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\'text-align: center; padding: 20px;\'><h3>MMTU GPA INSITE</h3><p>Mampong Technical University</p></div>';">
+        </div>
+        
+        <h1>MMTU GPA Insite</h1>
+        <h2>Create Your Account</h2>
+        
+        <form method="POST" action="{{ url_for('signup') }}">
+            <div class="form-group">
+                <label for="name">Full Name:</label>
+                <input type="text" id="name" name="name" required 
+                       placeholder="Enter your full name">
+            </div>
+            
+            <div class="form-group">
+                <label for="student_id">Student ID:</label>
+                <input type="text" id="student_id" name="student_id" required 
+                       placeholder="Enter your student ID">
+            </div>
+
+             <div class="form-group">
+                <label for="department">Department:</label>
+                <input type="text" id="department" name="department" required 
+                       placeholder="Enter your department name (e.g., Computer Science, Engineering, etc.)">
+                <small>Type your full department name</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" required 
+                       placeholder="Create a password">
+            </div>
+            
+            <div class="form-group">
+                <label for="confirm_password">Confirm Password:</label>
+                <input type="password" id="confirm_password" name="confirm_password" required 
+                       placeholder="Confirm your password">
+            </div>
+            
+            <button type="submit" class="btn btn-primary" style="width: 100%;">
+                <span class="btn-text">Create Account</span>
+            </button>
+        </form>
+        
+        <p class="auth-link">
+            Already have an account? <a href="{{ url_for('welcome') }}">Login here</a>
+        </p>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h1>Saved GPA Records</h1>
+    
+    {% if records %}
+    <div class="records-table">
+        <div class="table-header">
+            <div>Title</div>
+            <div>GPA</div>
+            <div>Status</div>
+            <div>Date</div>
+            <div>Actions</div>
+        </div>
+        
+        {% for record in records %}
+        <div class="table-row">
+            <div class="title-cell">{{ record.title }}</div>
+            <div class="gpa-cell">{{ record.gpa }}</div>
+            <div class="status-cell {{ record.status|lower|replace(' ', '-') }}">{{ record.status }}</div>
+            <div class="date-cell">{{ record.created_at[:16] }}</div>
+            <div class="actions-cell">
+                <a href="{{ url_for('view_record', record_id=record.id) }}" class="btn btn-small">View</a>
+                <form method="POST" action="{{ url_for('delete_record', record_id=record.id) }}" 
+                      onsubmit="return confirm('Are you sure you want to delete this record?');"
+                      style="display: inline;">
+                    <button type="submit" class="btn btn-small btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="no-records">
+        <p>No saved records found.</p>
+        <a href="{{ url_for('set_modules') }}" class="btn btn-primary">Calculate Your First GPA</a>
+    </div>
+    {% endif %}
+    
+    <div class="form-actions">
+        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Back to Dashboard</a>
+    </div>
+</div>
+{% endblock %}

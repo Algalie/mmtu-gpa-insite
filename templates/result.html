@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="result-card">
+        <h1>GPA Calculation Result</h1>
+        
+        <div class="gpa-display">{{ calculation.gpa }}</div>
+        <div class="status-message">{{ calculation.status }}</div>
+        
+        <p class="result-message">{{ calculation.message }}</p>
+        
+        {% if calculation.details %}
+        <div class="grade-comparison">
+            <h3>Grade Details:</h3>
+            {% for detail in calculation.details %}
+            <div class="grade-item">
+                <div>
+                    <strong>{{ detail.label }}</strong>
+                    {% if detail.code %}({{ detail.code }}){% endif %}
+                </div>
+                <div>
+                    Grade: {{ detail.grade_before }}
+                    {% if detail.reference %}
+                    → <span class="adjusted-grade">{{ detail.grade_after }}</span>
+                    <small>(Reference)</small>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="form-actions">
+        <button type="button" onclick="openSaveModal()" class="btn btn-primary">Save Result</button>
+        <a href="{{ url_for('modules_input') }}" class="btn btn-secondary">Back to Grades</a>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Back to Dashboard</a>
+    </div>
+</div>
+
+<!-- Save Modal -->
+<div id="saveModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <h3>Save GPA Result</h3>
+        <form id="saveForm" onsubmit="saveResult(event)">
+            <div class="form-group">
+                <label for="title">Title *:</label>
+                <input type="text" id="title" name="title" placeholder="e.g., Year 1 Sem 1" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="semester">Semester:</label>
+                <input type="text" id="semester" name="semester" placeholder="e.g., Fall 2024">
+            </div>
+            
+            <div class="form-group">
+                <label for="notes">Notes:</label>
+                <textarea id="notes" name="notes" placeholder="Optional notes..."></textarea>
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Save</button>
+                <button type="button" onclick="closeSaveModal()" class="btn btn-secondary">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openSaveModal() {
+    document.getElementById('saveModal').style.display = 'flex';
+}
+
+function closeSaveModal() {
+    document.getElementById('saveModal').style.display = 'none';
+}
+
+function saveResult(event) {
+    event.preventDefault();
+    
+    const formData = new FormData(document.getElementById('saveForm'));
+    
+    fetch('/save-result', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            window.location.href = '/saved-records';
+        } else {
+            alert(data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while saving');
+    });
+}
+
+// Close modal when clicking outside
+document.getElementById('saveModal').addEventListener('click', function(event) {
+    if (event.target === this) {
+        closeSaveModal();
+    }
+});
+</script>
+{% endblock %}
