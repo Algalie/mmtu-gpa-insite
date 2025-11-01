@@ -35,6 +35,16 @@
             <h3>🎓 Enter Grades</h3>
             <p>Input your grades and mark reference modules for calculation</p>
         </a>
+
+           <a href="{{ url_for('final_calculation') }}" class="dashboard-card">
+        <h3>🎯 Final GPA</h3>
+        <p>Calculate your final GPA by combining two semesters</p>
+    </a>
+
+     <a href="{{ url_for('final_records') }}" class="dashboard-card">
+        <h3>📊 Final Records</h3>
+        <p>View your saved final GPA calculations</p>
+    </a>
         
         <a href="{{ url_for('saved_records') }}" class="dashboard-card">
             <h3>📁 Saved Records</h3>
