@@ -32,7 +32,7 @@
                     </span>
                 </div>
                 <div class="table-cell date-cell">
-                    {{ record.created_at.strftime('%Y-%m-%d %H:%M') if record.created_at else 'Unknown' }}
+                    {{ record.created_at }}
                 </div>
                 <div class="table-cell actions-cell">
                     <a href="{{ url_for('view_record', record_id=record.id) }}" class="btn btn-small btn-view">View</a>
@@ -71,7 +71,6 @@
 
 .records-table {
     width: 100%;
-    border-collapse: collapse;
 }
 
 .table-header {
@@ -92,7 +91,6 @@
     padding: 1.25rem 1.5rem;
     border-bottom: 1px solid var(--gray-200);
     align-items: center;
-    transition: background-color 0.2s ease;
 }
 
 .table-row:hover {
@@ -109,7 +107,6 @@
     min-height: 40px;
 }
 
-/* Specific cell styles */
 .title-cell {
     flex-direction: column;
     align-items: flex-start;
@@ -207,7 +204,6 @@
 
 .btn-view:hover {
     background: var(--primary-dark);
-    transform: translateY(-1px);
 }
 
 .btn-delete {
@@ -217,7 +213,6 @@
 
 .btn-delete:hover {
     background: var(--danger);
-    transform: translateY(-1px);
 }
 
 .delete-form {
@@ -225,7 +220,6 @@
     display: inline;
 }
 
-/* No records state */
 .no-records {
     text-align: center;
     padding: 4rem 2rem;
@@ -250,16 +244,6 @@
     font-size: 1.1rem;
 }
 
-/* Responsive design */
-@media (max-width: 1024px) {
-    .table-header,
-    .table-row {
-        grid-template-columns: 2fr 1fr 1.2fr 1.2fr 1.5fr;
-        gap: 0.75rem;
-        padding: 1rem 1.25rem;
-    }
-}
-
 @media (max-width: 768px) {
     .table-header {
         display: none;
@@ -272,7 +256,6 @@
         margin-bottom: 1rem;
         border: 1px solid var(--gray-200);
         border-radius: 8px;
-        background: var(--white);
     }
     
     .table-cell {
@@ -291,7 +274,6 @@
         content: attr(data-label);
         font-weight: 600;
         color: var(--primary-dark);
-        font-size: 0.9rem;
     }
     
     .title-cell::before { content: "Title"; }
@@ -299,33 +281,10 @@
     .status-cell::before { content: "Status"; }
     .date-cell::before { content: "Date"; }
     .actions-cell::before { content: "Actions"; display: none; }
-    
-    .actions-cell {
-        border-top: 1px solid var(--gray-200);
-        padding-top: 1rem;
-        margin-top: 0.5rem;
-    }
-}
-
-@media (max-width: 480px) {
-    .table-row {
-        padding: 1.25rem;
-    }
-    
-    .actions-cell {
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-    
-    .btn-small {
-        width: 100%;
-        text-align: center;
-    }
 }
 </style>
 
 <script>
-// Add data labels for mobile responsive table
 document.addEventListener('DOMContentLoaded', function() {
     const tableCells = document.querySelectorAll('.table-cell');
     tableCells.forEach(cell => {
@@ -334,4 +293,3 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
-
