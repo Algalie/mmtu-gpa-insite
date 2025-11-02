@@ -1,3 +1,4 @@
+
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
@@ -101,7 +102,6 @@ def format_datetime(dt):
     if not dt:
         return 'Unknown'
     if isinstance(dt, str):
-        # If it's already a string, try to parse and format
         try:
             dt = datetime.fromisoformat(dt.replace('Z', '+00:00'))
         except:
@@ -114,6 +114,14 @@ def format_datetime(dt):
 @app.route('/')
 def welcome():
     return render_template('login.html')
+
+@app.route('/health')
+def health_check():
+    try:
+        db.session.execute(text('SELECT 1'))
+        return jsonify({'status': 'healthy', 'database': 'connected'}), 200
+    except Exception as e:
+        return jsonify({'status': 'unhealthy', 'error': str(e)}), 500
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -173,19 +181,6 @@ def signup():
         return redirect(url_for('welcome'))
     
     return render_template('signup.html')
-
-@app.route('/health')
-def health_check():
-    try:
-        # Test database connection
-        db.session.execute(text('SELECT 1'))
-        return jsonify({'status': 'healthy', 'database': 'connected'}), 200
-    except Exception as e:
-        return jsonify({'status': 'unhealthy', 'error': str(e)}), 500
-
-@app.route('/')
-def welcome():
-    return render_template('login.html')
 
 @app.route('/dashboard')
 @login_required
@@ -607,4 +602,3 @@ def delete_final_record(record_id):
 
 if __name__ == '__main__':
     app.run(debug=True)
-
