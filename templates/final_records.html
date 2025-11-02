@@ -193,4 +193,112 @@
 .date-cell {
     color: var(--gray-600);
     font-size: 0.9rem;
-    justify-content:
+    justify-content: center;
+}
+
+.actions-cell {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+}
+
+.btn-small {
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+    border-radius: 6px;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-delete {
+    background: var(--warning-red);
+    color: var(--white);
+}
+
+.btn-delete:hover {
+    background: var(--danger);
+}
+
+.delete-form {
+    margin: 0;
+    display: inline;
+}
+
+.no-records {
+    text-align: center;
+    padding: 4rem 2rem;
+    background: var(--white);
+    border-radius: 12px;
+    box-shadow: var(--shadow-lg);
+}
+
+.no-records-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+}
+
+.no-records h3 {
+    color: var(--primary-dark);
+    margin-bottom: 1rem;
+}
+
+.no-records p {
+    color: var(--gray-600);
+    margin-bottom: 2rem;
+    font-size: 1.1rem;
+}
+
+@media (max-width: 768px) {
+    .table-header {
+        display: none;
+    }
+    
+    .table-row {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        border: 1px solid var(--gray-200);
+        border-radius: 8px;
+    }
+    
+    .table-cell {
+        justify-content: space-between;
+        border-bottom: 1px solid var(--gray-100);
+        padding: 0.5rem 0;
+    }
+    
+    .table-cell:last-child {
+        border-bottom: none;
+        padding-top: 1rem;
+        justify-content: center;
+    }
+    
+    .table-cell::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: var(--primary-dark);
+    }
+    
+    .title-cell::before { content: "Title"; }
+    .table-cell:nth-child(2)::before { content: "First Semester GPA"; }
+    .table-cell:nth-child(3)::before { content: "Second Semester GPA"; }
+    .table-cell:nth-child(4)::before { content: "Final GPA"; }
+    .table-cell:nth-child(5)::before { content: "Status"; }
+    .table-cell:nth-child(6)::before { content: "Date"; }
+    .table-cell:nth-child(7)::before { content: "Actions"; display: none; }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const tableCells = document.querySelectorAll('.table-cell');
+    tableCells.forEach(cell => {
+        const cellType = cell.classList[0].replace('-cell', '').replace(/-/g, ' ');
+        cell.setAttribute('data-label', cellType);
+    });
+});
+</script>
+{% endblock %}
