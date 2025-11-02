@@ -298,7 +298,15 @@ def save_result():
 @login_required
 def saved_records():
     try:
+        print(f"🔍 Debug: User {session['user_id']} accessing saved records")
+        
+        # Test database connection first
+        db.session.execute(text('SELECT 1'))
+        print("✅ Database connection successful")
+        
+        # Get records
         records = SavedRecord.query.filter_by(user_id=session['user_id']).order_by(SavedRecord.created_at.desc()).all()
+        print(f"✅ Found {len(records)} records for user")
         
         # Convert records to list of dictionaries for template
         records_list = []
@@ -314,9 +322,46 @@ def saved_records():
             })
         
         return render_template('saved_records.html', records=records_list)
+        
     except Exception as e:
-        print(f"Error in saved_records: {e}")
-        flash('Error loading saved records', 'error')
+        print(f"❌ Error in saved_records: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        flash('Error loading saved records. Please try again.', 'error')
+        return redirect(url_for('dashboard'))@app.route('/saved-records')
+@login_required
+def saved_records():
+    try:
+        print(f"🔍 Debug: User {session['user_id']} accessing saved records")
+        
+        # Test database connection first
+        db.session.execute(text('SELECT 1'))
+        print("✅ Database connection successful")
+        
+        # Get records
+        records = SavedRecord.query.filter_by(user_id=session['user_id']).order_by(SavedRecord.created_at.desc()).all()
+        print(f"✅ Found {len(records)} records for user")
+        
+        # Convert records to list of dictionaries for template
+        records_list = []
+        for record in records:
+            records_list.append({
+                'id': record.id,
+                'title': record.title,
+                'semester': record.semester,
+                'gpa': record.gpa,
+                'status': record.status,
+                'notes': record.notes,
+                'created_at': record.created_at
+            })
+        
+        return render_template('saved_records.html', records=records_list)
+        
+    except Exception as e:
+        print(f"❌ Error in saved_records: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        flash('Error loading saved records. Please try again.', 'error')
         return redirect(url_for('dashboard'))
 
 @app.route('/saved-records/<int:record_id>')
@@ -512,9 +557,14 @@ def save_final_gpa():
 @login_required
 def final_records():
     try:
-        records = FinalGPARecord.query.filter_by(user_id=session['user_id']).order_by(FinalGPARecord.created_at.desc()).all()
+        print(f"🔍 Debug: User {session['user_id']} accessing final records")
         
-        # Convert records to list of dictionaries for template
+        # Test database connection
+        db.session.execute(text('SELECT 1'))
+        
+        records = FinalGPARecord.query.filter_by(user_id=session['user_id']).order_by(FinalGPARecord.created_at.desc()).all()
+        print(f"✅ Found {len(records)} final records")
+        
         records_list = []
         for record in records:
             records_list.append({
@@ -530,8 +580,10 @@ def final_records():
         
         return render_template('final_records.html', records=records_list)
     except Exception as e:
-        print(f"Error in final_records: {e}")
-        flash('Error loading final records', 'error')
+        print(f"❌ Error in final_records: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        flash('Error loading final records. Please try again.', 'error')
         return redirect(url_for('dashboard'))
 
 @app.route('/delete-final-record/<int:record_id>', methods=['POST'])
@@ -559,4 +611,5 @@ def delete_final_record(record_id):
 
 if __name__ == '__main__':
     app.run(debug=True)
+
 
