@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
 import json
 import os
+import traceback
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -296,8 +297,27 @@ def save_result():
 @app.route('/saved-records')
 @login_required
 def saved_records():
-    records = SavedRecord.query.filter_by(user_id=session['user_id']).order_by(SavedRecord.created_at.desc()).all()
-    return render_template('saved_records.html', records=records)
+    try:
+        records = SavedRecord.query.filter_by(user_id=session['user_id']).order_by(SavedRecord.created_at.desc()).all()
+        
+        # Convert records to list of dictionaries for template
+        records_list = []
+        for record in records:
+            records_list.append({
+                'id': record.id,
+                'title': record.title,
+                'semester': record.semester,
+                'gpa': record.gpa,
+                'status': record.status,
+                'notes': record.notes,
+                'created_at': record.created_at
+            })
+        
+        return render_template('saved_records.html', records=records_list)
+    except Exception as e:
+        print(f"Error in saved_records: {e}")
+        flash('Error loading saved records', 'error')
+        return redirect(url_for('dashboard'))
 
 @app.route('/saved-records/<int:record_id>')
 @login_required
@@ -491,8 +511,28 @@ def save_final_gpa():
 @app.route('/final-records')
 @login_required
 def final_records():
-    records = FinalGPARecord.query.filter_by(user_id=session['user_id']).order_by(FinalGPARecord.created_at.desc()).all()
-    return render_template('final_records.html', records=records)
+    try:
+        records = FinalGPARecord.query.filter_by(user_id=session['user_id']).order_by(FinalGPARecord.created_at.desc()).all()
+        
+        # Convert records to list of dictionaries for template
+        records_list = []
+        for record in records:
+            records_list.append({
+                'id': record.id,
+                'title': record.title,
+                'first_semester_gpa': record.first_semester_gpa,
+                'second_semester_gpa': record.second_semester_gpa,
+                'final_gpa': record.final_gpa,
+                'status': record.status,
+                'notes': record.notes,
+                'created_at': record.created_at
+            })
+        
+        return render_template('final_records.html', records=records_list)
+    except Exception as e:
+        print(f"Error in final_records: {e}")
+        flash('Error loading final records', 'error')
+        return redirect(url_for('dashboard'))
 
 @app.route('/delete-final-record/<int:record_id>', methods=['POST'])
 @login_required
@@ -519,3 +559,4 @@ def delete_final_record(record_id):
 
 if __name__ == '__main__':
     app.run(debug=True)
+
