@@ -1,4 +1,3 @@
-
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
@@ -10,17 +9,40 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here-change-in-production')
 
-# PostgreSQL Configuration
-DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///gpa.db')
-if DATABASE_URL and DATABASE_URL.startswith('postgres://'):
+# =============================================================================
+# POSTGRESQL DATABASE CONFIGURATION - PRODUCTION ONLY
+# =============================================================================
+
+# Get DATABASE_URL from environment (REQUIRED)
+DATABASE_URL = os.environ.get('DATABASE_URL')
+
+# ENFORCE PostgreSQL - No SQLite fallback
+if not DATABASE_URL:
+    print("❌ CRITICAL ERROR: DATABASE_URL environment variable is missing!")
+    print("💡 On Render, make sure you have:")
+    print("   - PostgreSQL database created")
+    print("   - DATABASE_URL environment variable set")
+    raise RuntimeError("DATABASE_URL environment variable is required for production")
+
+# Ensure we're using PostgreSQL format
+if DATABASE_URL.startswith('postgres://'):
     DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+
+if 'postgresql' not in DATABASE_URL:
+    raise ValueError(f"Invalid database URL. Must use PostgreSQL. Got: {DATABASE_URL}")
 
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-# Define Models
+print(f"🎯 Database configured: PostgreSQL")
+print(f"🔗 Connection: {DATABASE_URL.split('@')[-1] if '@' in DATABASE_URL else 'Connected'}")
+
+# =============================================================================
+# DATABASE MODELS
+# =============================================================================
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     student_id = db.Column(db.String(50), unique=True, nullable=False)
@@ -66,16 +88,28 @@ class SaveAction(db.Model):
 def init_db():
     with app.app_context():
         try:
+            # Verify we're using PostgreSQL
+            if not DATABASE_URL or 'postgresql' not in DATABASE_URL:
+                raise ValueError("Must use PostgreSQL database! Current: " + str(DATABASE_URL))
+            
             db.create_all()
-            print("✅ Database tables created successfully!")
+            print("✅ PostgreSQL database tables created successfully!")
+            print(f"🔗 Using database: {DATABASE_URL.split('@')[-1] if DATABASE_URL else 'Unknown'}")
+            
         except Exception as e:
             print(f"❌ Error creating database tables: {e}")
+            # Don't raise in production, just log
+            if os.environ.get('FLASK_ENV') == 'development':
+                raise
 
 # Initialize database when app starts
 with app.app_context():
     init_db()
 
-# Helper function to check if user is logged in
+# =============================================================================
+# HELPER FUNCTIONS
+# =============================================================================
+
 def login_required(f):
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
@@ -97,7 +131,6 @@ def apply_reference(grade, is_ref):
     new_idx = min(idx + 1, len(GRADE_ORDER) - 1)
     return GRADE_ORDER[new_idx]
 
-# Safe datetime formatter
 def format_datetime(dt):
     if not dt:
         return 'Unknown'
@@ -110,7 +143,10 @@ def format_datetime(dt):
         return dt.strftime('%Y-%m-%d %H:%M')
     return str(dt)
 
-# Routes
+# =============================================================================
+# ROUTES
+# =============================================================================
+
 @app.route('/')
 def welcome():
     return render_template('login.html')
@@ -118,10 +154,21 @@ def welcome():
 @app.route('/health')
 def health_check():
     try:
+        # Test database connection
         db.session.execute(text('SELECT 1'))
-        return jsonify({'status': 'healthy', 'database': 'connected'}), 200
+        user_count = User.query.count()
+        return jsonify({
+            'status': 'healthy', 
+            'database': 'postgresql_connected',
+            'users_count': user_count,
+            'timestamp': datetime.utcnow().isoformat()
+        }), 200
     except Exception as e:
-        return jsonify({'status': 'unhealthy', 'error': str(e)}), 500
+        return jsonify({
+            'status': 'unhealthy', 
+            'error': str(e),
+            'database_url': DATABASE_URL[:50] + '...' if DATABASE_URL else 'missing'
+        }), 500
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -602,4 +649,3 @@ def delete_final_record(record_id):
 
 if __name__ == '__main__':
     app.run(debug=True)
-
