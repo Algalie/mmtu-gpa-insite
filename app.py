@@ -300,17 +300,15 @@ def saved_records():
     try:
         print(f"🔍 Debug: User {session['user_id']} accessing saved records")
         
-        # Test database connection first
-        db.session.execute(text('SELECT 1'))
-        print("✅ Database connection successful")
-        
-        # Get records
         records = SavedRecord.query.filter_by(user_id=session['user_id']).order_by(SavedRecord.created_at.desc()).all()
         print(f"✅ Found {len(records)} records for user")
         
         # Convert records to list of dictionaries for template
         records_list = []
         for record in records:
+            # Format the datetime for display
+            created_at_str = record.created_at.strftime('%Y-%m-%d %H:%M') if record.created_at else 'Unknown'
+            
             records_list.append({
                 'id': record.id,
                 'title': record.title,
@@ -318,7 +316,7 @@ def saved_records():
                 'gpa': record.gpa,
                 'status': record.status,
                 'notes': record.notes,
-                'created_at': record.created_at
+                'created_at': created_at_str  # Now it's a string, not datetime object
             })
         
         return render_template('saved_records.html', records=records_list)
@@ -328,7 +326,8 @@ def saved_records():
         import traceback
         traceback.print_exc()
         flash('Error loading saved records. Please try again.', 'error')
-        return redirect(url_for('dashboard'))@app.route('/saved-records')
+        return redirect(url_for('dashboard'))
+        
 @login_required
 def saved_records():
     try:
@@ -367,24 +366,34 @@ def saved_records():
 @app.route('/saved-records/<int:record_id>')
 @login_required
 def view_record(record_id):
-    record = SavedRecord.query.filter_by(id=record_id, user_id=session['user_id']).first()
-    
-    if not record:
-        flash('Record not found', 'error')
+    try:
+        record = SavedRecord.query.filter_by(id=record_id, user_id=session['user_id']).first()
+        
+        if not record:
+            flash('Record not found', 'error')
+            return redirect(url_for('saved_records'))
+        
+        # Format the datetime for display
+        created_at_str = record.created_at.strftime('%Y-%m-%d %H:%M') if record.created_at else 'Unknown'
+        
+        record_dict = {
+            'id': record.id,
+            'title': record.title,
+            'semester': record.semester,
+            'modules_json': record.modules_json,
+            'gpa': record.gpa,
+            'status': record.status,
+            'notes': record.notes,
+            'created_at': created_at_str  # String instead of datetime
+        }
+        record_dict['modules'] = json.loads(record_dict['modules_json'])
+        return render_template('view_record.html', record=record_dict)
+    except Exception as e:
+        print(f"Error in view_record: {e}")
+        import traceback
+        traceback.print_exc()
+        flash('Error loading record', 'error')
         return redirect(url_for('saved_records'))
-    
-    record_dict = {
-        'id': record.id,
-        'title': record.title,
-        'semester': record.semester,
-        'modules_json': record.modules_json,
-        'gpa': record.gpa,
-        'status': record.status,
-        'notes': record.notes,
-        'created_at': record.created_at
-    }
-    record_dict['modules'] = json.loads(record_dict['modules_json'])
-    return render_template('view_record.html', record=record_dict)
 
 @app.route('/delete-record/<int:record_id>', methods=['POST'])
 @login_required
@@ -559,14 +568,14 @@ def final_records():
     try:
         print(f"🔍 Debug: User {session['user_id']} accessing final records")
         
-        # Test database connection
-        db.session.execute(text('SELECT 1'))
-        
         records = FinalGPARecord.query.filter_by(user_id=session['user_id']).order_by(FinalGPARecord.created_at.desc()).all()
         print(f"✅ Found {len(records)} final records")
         
         records_list = []
         for record in records:
+            # Format the datetime for display
+            created_at_str = record.created_at.strftime('%Y-%m-%d %H:%M') if record.created_at else 'Unknown'
+            
             records_list.append({
                 'id': record.id,
                 'title': record.title,
@@ -575,7 +584,7 @@ def final_records():
                 'final_gpa': record.final_gpa,
                 'status': record.status,
                 'notes': record.notes,
-                'created_at': record.created_at
+                'created_at': created_at_str  # Now it's a string, not datetime object
             })
         
         return render_template('final_records.html', records=records_list)
@@ -611,5 +620,6 @@ def delete_final_record(record_id):
 
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
