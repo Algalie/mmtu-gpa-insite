@@ -504,59 +504,78 @@ def final_calculation():
 @app.route('/calculate-final-gpa', methods=['POST'])
 @login_required
 def calculate_final_gpa():
-    data = request.get_json()
-    first_semester_id = data.get('first_semester_id')
-    second_semester_id = data.get('second_semester_id')
-    
-    # Get first semester GPA
-    first_semester = SavedRecord.query.filter_by(id=first_semester_id, user_id=session['user_id']).first()
-    
-    # Get second semester GPA
-    second_semester = SavedRecord.query.filter_by(id=second_semester_id, user_id=session['user_id']).first()
-    
-    if not first_semester or not second_semester:
-        return jsonify({'success': False, 'message': 'One or both semester records not found'}), 400
-    
-    # Calculate final GPA
-    first_gpa = first_semester.gpa
-    second_gpa = second_semester.gpa
-    final_gpa = round((first_gpa + second_gpa) / 2, 2)
-    
-    # Determine status
-    if final_gpa >= 4.0:
-        status = "Excellent Pass"
-    elif final_gpa >= 3.0:
-        status = "Pass"
-    elif final_gpa >= 2.7:
-        status = "Fail"
-    else:
-        status = "Withdrew"
-    
-    session['final_calculation'] = {
-        'first_semester': {
-            'id': first_semester.id,
-            'title': first_semester.title,
-            'gpa': first_semester.gpa
-        },
-        'second_semester': {
-            'id': second_semester.id,
-            'title': second_semester.title,
-            'gpa': second_semester.gpa
-        },
-        'first_gpa': first_gpa,
-        'second_gpa': second_gpa,
-        'final_gpa': final_gpa,
-        'status': status
-    }
-    
-    return jsonify({
-        'success': True,
-        'first_gpa': first_gpa,
-        'second_gpa': second_gpa,
-        'final_gpa': final_gpa,
-        'status': status,
-        'message': f'Final GPA: {final_gpa} - {status}'
-    })
+    try:
+        print("🔍 Debug: Starting final GPA calculation")
+        data = request.get_json()
+        print(f"🔍 Debug: Received data: {data}")
+        
+        first_semester_id = data.get('first_semester_id')
+        second_semester_id = data.get('second_semester_id')
+        
+        print(f"🔍 Debug: First semester ID: {first_semester_id}")
+        print(f"🔍 Debug: Second semester ID: {second_semester_id}")
+        
+        # Get first semester GPA
+        first_semester = SavedRecord.query.filter_by(id=first_semester_id, user_id=session['user_id']).first()
+        print(f"🔍 Debug: First semester record: {first_semester}")
+        
+        # Get second semester GPA
+        second_semester = SavedRecord.query.filter_by(id=second_semester_id, user_id=session['user_id']).first()
+        print(f"🔍 Debug: Second semester record: {second_semester}")
+        
+        if not first_semester or not second_semester:
+            print("❌ Error: One or both semester records not found")
+            return jsonify({'success': False, 'message': 'One or both semester records not found'}), 400
+        
+        # Calculate final GPA
+        first_gpa = first_semester.gpa
+        second_gpa = second_semester.gpa
+        final_gpa = round((first_gpa + second_gpa) / 2, 2)
+        
+        print(f"🔍 Debug: First GPA: {first_gpa}, Second GPA: {second_gpa}, Final GPA: {final_gpa}")
+        
+        # Determine status
+        if final_gpa >= 4.0:
+            status = "Excellent Pass"
+        elif final_gpa >= 3.0:
+            status = "Pass"
+        elif final_gpa >= 2.7:
+            status = "Fail"
+        else:
+            status = "Withdrew"
+        
+        session['final_calculation'] = {
+            'first_semester': {
+                'id': first_semester.id,
+                'title': first_semester.title,
+                'gpa': first_semester.gpa
+            },
+            'second_semester': {
+                'id': second_semester.id,
+                'title': second_semester.title,
+                'gpa': second_semester.gpa
+            },
+            'first_gpa': first_gpa,
+            'second_gpa': second_gpa,
+            'final_gpa': final_gpa,
+            'status': status
+        }
+        
+        print("✅ Debug: Final GPA calculation successful")
+        return jsonify({
+            'success': True,
+            'first_gpa': first_gpa,
+            'second_gpa': second_gpa,
+            'final_gpa': final_gpa,
+            'status': status,
+            'message': f'Final GPA: {final_gpa} - {status}'
+        })
+        
+    except Exception as e:
+        print(f"❌ Error in calculate_final_gpa: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': f'Calculation error: {str(e)}'}), 500
 
 @app.route('/save-final-gpa', methods=['POST'])
 @login_required
@@ -648,3 +667,4 @@ def delete_final_record(record_id):
 
 if __name__ == '__main__':
     app.run(debug=True)
+
