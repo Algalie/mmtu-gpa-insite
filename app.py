@@ -10,7 +10,7 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here-change-in-production')
 
 # =============================================================================
-# POSTGRESQL DATABASE CONFIGURATION - PRODUCTION ONLY
+# POSTGRESQL DATABASE CONFIGURATION - USING pg8000
 # =============================================================================
 
 # Get DATABASE_URL from environment (REQUIRED)
@@ -24,19 +24,18 @@ if not DATABASE_URL:
     print("   - DATABASE_URL environment variable set")
     raise RuntimeError("DATABASE_URL environment variable is required for production")
 
-# Ensure we're using PostgreSQL format
-if DATABASE_URL.startswith('postgres://'):
-    DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
-
-if 'postgresql' not in DATABASE_URL:
-    raise ValueError(f"Invalid database URL. Must use PostgreSQL. Got: {DATABASE_URL}")
+# Convert to pg8000 format
+if DATABASE_URL.startswith('postgresql://'):
+    DATABASE_URL = DATABASE_URL.replace('postgresql://', 'postgresql+pg8000://', 1)
+elif DATABASE_URL.startswith('postgres://'):
+    DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql+pg8000://', 1)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-print(f"🎯 Database configured: PostgreSQL")
+print(f"🎯 Database configured: PostgreSQL with pg8000")
 print(f"🔗 Connection: {DATABASE_URL.split('@')[-1] if '@' in DATABASE_URL else 'Connected'}")
 
 # =============================================================================
