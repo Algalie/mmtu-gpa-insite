@@ -174,6 +174,19 @@ def signup():
     
     return render_template('signup.html')
 
+@app.route('/health')
+def health_check():
+    try:
+        # Test database connection
+        db.session.execute(text('SELECT 1'))
+        return jsonify({'status': 'healthy', 'database': 'connected'}), 200
+    except Exception as e:
+        return jsonify({'status': 'unhealthy', 'error': str(e)}), 500
+
+@app.route('/')
+def welcome():
+    return render_template('login.html')
+
 @app.route('/dashboard')
 @login_required
 def dashboard():
@@ -594,3 +607,4 @@ def delete_final_record(record_id):
 
 if __name__ == '__main__':
     app.run(debug=True)
+
