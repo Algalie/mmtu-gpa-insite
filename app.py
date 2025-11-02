@@ -3,7 +3,6 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
 import json
 import os
-import traceback
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -96,6 +95,20 @@ def apply_reference(grade, is_ref):
     idx = GRADE_ORDER.index(grade)
     new_idx = min(idx + 1, len(GRADE_ORDER) - 1)
     return GRADE_ORDER[new_idx]
+
+# Safe datetime formatter
+def format_datetime(dt):
+    if not dt:
+        return 'Unknown'
+    if isinstance(dt, str):
+        # If it's already a string, try to parse and format
+        try:
+            dt = datetime.fromisoformat(dt.replace('Z', '+00:00'))
+        except:
+            return dt[:16] if len(dt) >= 16 else dt
+    if hasattr(dt, 'strftime'):
+        return dt.strftime('%Y-%m-%d %H:%M')
+    return str(dt)
 
 # Routes
 @app.route('/')
@@ -298,48 +311,7 @@ def save_result():
 @login_required
 def saved_records():
     try:
-        print(f"🔍 Debug: User {session['user_id']} accessing saved records")
-        
         records = SavedRecord.query.filter_by(user_id=session['user_id']).order_by(SavedRecord.created_at.desc()).all()
-        print(f"✅ Found {len(records)} records for user")
-        
-        # Convert records to list of dictionaries for template
-        records_list = []
-        for record in records:
-            # Format the datetime for display
-            created_at_str = record.created_at.strftime('%Y-%m-%d %H:%M') if record.created_at else 'Unknown'
-            
-            records_list.append({
-                'id': record.id,
-                'title': record.title,
-                'semester': record.semester,
-                'gpa': record.gpa,
-                'status': record.status,
-                'notes': record.notes,
-                'created_at': created_at_str  # Now it's a string, not datetime object
-            })
-        
-        return render_template('saved_records.html', records=records_list)
-        
-    except Exception as e:
-        print(f"❌ Error in saved_records: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        flash('Error loading saved records. Please try again.', 'error')
-        return redirect(url_for('dashboard'))
-        
-@login_required
-def saved_records():
-    try:
-        print(f"🔍 Debug: User {session['user_id']} accessing saved records")
-        
-        # Test database connection first
-        db.session.execute(text('SELECT 1'))
-        print("✅ Database connection successful")
-        
-        # Get records
-        records = SavedRecord.query.filter_by(user_id=session['user_id']).order_by(SavedRecord.created_at.desc()).all()
-        print(f"✅ Found {len(records)} records for user")
         
         # Convert records to list of dictionaries for template
         records_list = []
@@ -351,7 +323,7 @@ def saved_records():
                 'gpa': record.gpa,
                 'status': record.status,
                 'notes': record.notes,
-                'created_at': record.created_at
+                'created_at': format_datetime(record.created_at)
             })
         
         return render_template('saved_records.html', records=records_list)
@@ -373,9 +345,6 @@ def view_record(record_id):
             flash('Record not found', 'error')
             return redirect(url_for('saved_records'))
         
-        # Format the datetime for display
-        created_at_str = record.created_at.strftime('%Y-%m-%d %H:%M') if record.created_at else 'Unknown'
-        
         record_dict = {
             'id': record.id,
             'title': record.title,
@@ -384,7 +353,7 @@ def view_record(record_id):
             'gpa': record.gpa,
             'status': record.status,
             'notes': record.notes,
-            'created_at': created_at_str  # String instead of datetime
+            'created_at': format_datetime(record.created_at)
         }
         record_dict['modules'] = json.loads(record_dict['modules_json'])
         return render_template('view_record.html', record=record_dict)
@@ -465,7 +434,18 @@ def logout():
 @login_required
 def final_calculation():
     saved_records = SavedRecord.query.filter_by(user_id=session['user_id']).order_by(SavedRecord.created_at.desc()).all()
-    return render_template('final_calculation.html', saved_records=saved_records)
+    
+    # Format dates for template
+    records_list = []
+    for record in saved_records:
+        records_list.append({
+            'id': record.id,
+            'title': record.title,
+            'gpa': record.gpa,
+            'created_at': format_datetime(record.created_at)
+        })
+    
+    return render_template('final_calculation.html', saved_records=records_list)
 
 @app.route('/calculate-final-gpa', methods=['POST'])
 @login_required
@@ -566,16 +546,10 @@ def save_final_gpa():
 @login_required
 def final_records():
     try:
-        print(f"🔍 Debug: User {session['user_id']} accessing final records")
-        
         records = FinalGPARecord.query.filter_by(user_id=session['user_id']).order_by(FinalGPARecord.created_at.desc()).all()
-        print(f"✅ Found {len(records)} final records")
         
         records_list = []
         for record in records:
-            # Format the datetime for display
-            created_at_str = record.created_at.strftime('%Y-%m-%d %H:%M') if record.created_at else 'Unknown'
-            
             records_list.append({
                 'id': record.id,
                 'title': record.title,
@@ -584,7 +558,7 @@ def final_records():
                 'final_gpa': record.final_gpa,
                 'status': record.status,
                 'notes': record.notes,
-                'created_at': created_at_str  # Now it's a string, not datetime object
+                'created_at': format_datetime(record.created_at)
             })
         
         return render_template('final_records.html', records=records_list)
@@ -620,6 +594,3 @@ def delete_final_record(record_id):
 
 if __name__ == '__main__':
     app.run(debug=True)
-
-
-
