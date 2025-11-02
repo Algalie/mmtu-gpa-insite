@@ -16,15 +16,23 @@ def get_db_connection():
     
     if database_url:
         # PostgreSQL on Render
-        result = urlparse(database_url)
-        conn = psycopg2.connect(
-            host=result.hostname,
-            database=result.path[1:],
-            user=result.username,
-            password=result.password,
-            port=result.port
-        )
-        return conn
+        try:
+            result = urlparse(database_url)
+            conn = psycopg2.connect(
+                host=result.hostname,
+                database=result.path[1:],
+                user=result.username,
+                password=result.password,
+                port=result.port
+            )
+            return conn
+        except Exception as e:
+            print(f"PostgreSQL connection failed: {e}")
+            # Fallback to SQLite for development
+            import sqlite3
+            conn = sqlite3.connect('instance/gpa.db')
+            conn.row_factory = sqlite3.Row
+            return conn
     else:
         # SQLite for local development
         import sqlite3
@@ -609,3 +617,4 @@ def logout():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+
