@@ -1,3 +1,4 @@
+
 {% extends "base.html" %}
 
 {% block content %}
@@ -25,27 +26,6 @@
         </div>
     </header>
 
-    <!-- Feedback Notification -->
-    {% if has_feedback %}
-    <div class="feedback-notification" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-        <div style="display: flex; align-items: center; justify-content: space-between;">
-            <div style="display: flex; align-items: center; gap: 15px;">
-                <div style="font-size: 24px;">💬</div>
-                <div>
-                    <h4 style="margin: 0 0 5px 0; color: white;">New Message from Admin!</h4>
-                    <p style="margin: 0; opacity: 0.9;">Share your feedback about the system and help us improve</p>
-                </div>
-            </div>
-            <a href="{{ url_for('feedback') }}" 
-               style="background: rgba(255,255,255,0.2); color: white; padding: 10px 20px; border-radius: 25px; text-decoration: none; border: 1px solid rgba(255,255,255,0.3); transition: all 0.3s; white-space: nowrap;"
-               onmouseover="this.style.background='rgba(255,255,255,0.3)'; this.style.transform='translateY(-2px)';"
-               onmouseout="this.style.background='rgba(255,255,255,0.2)'; this.style.transform='translateY(0)';">
-                View Message <i class="fas fa-arrow-right" style="margin-left: 5px;"></i>
-            </a>
-        </div>
-    </div>
-    {% endif %}
-
     <div class="dashboard-grid">
         <a href="{{ url_for('set_modules') }}" class="dashboard-card">
             <h3>📊 Set Modules</h3>
@@ -57,15 +37,15 @@
             <p>Input your grades and mark reference modules for calculation</p>
         </a>
 
-        <a href="{{ url_for('final_calculation') }}" class="dashboard-card">
-            <h3>🎯 Final GPA</h3>
-            <p>Calculate your final GPA by combining two semesters</p>
-        </a>
+           <a href="{{ url_for('final_calculation') }}" class="dashboard-card">
+        <h3>🎯 Final GPA</h3>
+        <p>Calculate your final GPA by combining two semesters</p>
+    </a>
 
-        <a href="{{ url_for('final_records') }}" class="dashboard-card">
-            <h3>📊 Final Records</h3>
-            <p>View your saved final GPA calculations</p>
-        </a>
+     <a href="{{ url_for('final_records') }}" class="dashboard-card">
+        <h3>📊 Final Records</h3>
+        <p>View your saved final GPA calculations</p>
+    </a>
         
         <a href="{{ url_for('saved_records') }}" class="dashboard-card">
             <h3>📁 Saved Records</h3>
@@ -95,30 +75,4 @@
         </ul>
     </div>
 </div>
-
-<style>
-.feedback-notification {
-    animation: slideInDown 0.5s ease-out;
-}
-
-@keyframes slideInDown {
-    from {
-        transform: translateY(-20px);
-        opacity: 0;
-    }
-    to {
-        transform: translateY(0);
-        opacity: 1;
-    }
-}
-
-.dashboard-card {
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.dashboard-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-}
-</style>
 {% endblock %}
