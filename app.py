@@ -112,7 +112,51 @@ def init_db():
             if not DATABASE_URL or 'postgresql' not in DATABASE_URL:
                 raise ValueError("Must use PostgreSQL database! Current: " + str(DATABASE_URL))
             
+            # Create all tables
             db.create_all()
+            
+            # Check if we need to add the is_admin column
+            try:
+                # Try to query the is_admin column to see if it exists
+                db.session.execute(text('SELECT is_admin FROM "user" LIMIT 1'))
+            except Exception as e:
+                if 'column "is_admin" does not exist' in str(e):
+                    print("🔄 Adding is_admin column to user table...")
+                    db.session.execute(text('ALTER TABLE "user" ADD COLUMN is_admin BOOLEAN DEFAULT FALSE'))
+                    db.session.commit()
+                    print("✅ Added is_admin column")
+            
+            # Check if we need to create the new tables
+            try:
+                # Try to query the new tables to see if they exist
+                db.session.execute(text('SELECT 1 FROM feedback_message LIMIT 1'))
+                db.session.execute(text('SELECT 1 FROM feedback_response LIMIT 1'))
+            except Exception as e:
+                if 'relation "feedback_message" does not exist' in str(e):
+                    print("🔄 Creating new tables for admin functionality...")
+                    # Create the new tables manually
+                    db.session.execute(text('''
+                        CREATE TABLE feedback_message (
+                            id SERIAL PRIMARY KEY,
+                            title VARCHAR(200) NOT NULL,
+                            message TEXT NOT NULL,
+                            message_type VARCHAR(50) DEFAULT 'thank_you',
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            is_active BOOLEAN DEFAULT TRUE
+                        )
+                    '''))
+                    db.session.execute(text('''
+                        CREATE TABLE feedback_response (
+                            id SERIAL PRIMARY KEY,
+                            user_id INTEGER REFERENCES "user"(id),
+                            feedback_message_id INTEGER REFERENCES feedback_message(id),
+                            rating VARCHAR(50),
+                            comments TEXT,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                    '''))
+                    db.session.commit()
+                    print("✅ Created new tables for admin functionality")
             
             # Create admin user if not exists
             admin_user = User.query.filter_by(student_id='584870').first()
@@ -128,12 +172,20 @@ def init_db():
                 db.session.add(admin_user)
                 db.session.commit()
                 print("✅ Admin user created successfully!")
+            else:
+                # Ensure existing admin user has admin privileges
+                if not admin_user.is_admin:
+                    admin_user.is_admin = True
+                    db.session.commit()
+                    print("✅ Updated existing admin user privileges")
             
-            print("✅ PostgreSQL database tables created successfully!")
+            print("✅ PostgreSQL database tables created/updated successfully!")
             print(f"🔗 Using database: {DATABASE_URL.split('@')[-1] if DATABASE_URL else 'Unknown'}")
             
         except Exception as e:
-            print(f"❌ Error creating database tables: {e}")
+            print(f"❌ Error creating/updating database tables: {e}")
+            import traceback
+            traceback.print_exc()
             # Don't raise in production, just log
             if os.environ.get('FLASK_ENV') == 'development':
                 raise
@@ -1006,3 +1058,4 @@ def submit_feedback():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
