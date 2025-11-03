@@ -1,0 +1,188 @@
+{% extends "admin/base.html" %}
+
+{% block header_title %}Feedback System{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Send Feedback Form -->
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Send Message to Users</h6>
+            </div>
+            <div class="card-body">
+                <form action="{{ url_for('admin_send_feedback') }}" method="post">
+                    <div class="mb-3">
+                        <label for="message_type" class="form-label">Message Type</label>
+                        <select class="form-select" id="message_type" name="message_type" required>
+                            <option value="thank_you">Thank You Message</option>
+                            <option value="feedback_request">Feedback Request</option>
+                            <option value="announcement">Announcement</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="title" class="form-label">Title</label>
+                        <input type="text" class="form-control" id="title" name="title" 
+                               placeholder="Enter message title" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="message" class="form-label">Message</label>
+                        <textarea class="form-control" id="message" name="message" 
+                                  rows="5" placeholder="Enter your message..." required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-paper-plane"></i> Send to All Users
+                    </button>
+                </form>
+
+                {% if active_message %}
+                <div class="mt-3">
+                    <form action="{{ url_for('admin_end_feedback') }}" method="post">
+                        <button type="submit" class="btn btn-warning btn-sm">
+                            <i class="fas fa-stop"></i> End Current Feedback Session
+                        </button>
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Current Active Message -->
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                <h6 class="m-0 font-weight-bold text-primary">Active Message</h6>
+                {% if active_message %}
+                    <span class="badge bg-success">Active</span>
+                {% else %}
+                    <span class="badge bg-secondary">No Active Message</span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if active_message %}
+                    <h6>{{ active_message.title }}</h6>
+                    <p class="text-muted">{{ active_message.message }}</p>
+                    <small class="text-muted">
+                        Type: {{ active_message.message_type|replace('_', ' ')|title }} | 
+                        Created: {{ active_message.created_at.strftime('%Y-%m-%d %H:%M') }}
+                    </small>
+                {% else %}
+                    <p class="text-muted">No active message. Send a message to get feedback from users.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Feedback Statistics -->
+        <div class="card shadow mt-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Feedback Responses</h6>
+            </div>
+            <div class="card-body">
+                {% if responses %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>User</th>
+                                    <th>Rating</th>
+                                    <th>Date</th>
+                                    <th>Comments</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for response in responses %}
+                                <tr>
+                                    <td>{{ response.user.name }}</td>
+                                    <td>
+                                        <span class="badge 
+                                            {% if response.rating == 'excellent' %}bg-success
+                                            {% elif response.rating == 'good' %}bg-info
+                                            {% elif response.rating == 'average' %}bg-warning
+                                            {% else %}bg-danger{% endif %}">
+                                            {{ response.rating|title }}
+                                        </span>
+                                    </td>
+                                    <td>{{ response.created_at.strftime('%m/%d %H:%M') }}</td>
+                                    <td>
+                                        {% if response.comments %}
+                                            <small>{{ response.comments[:50] }}{% if response.comments|length > 50 %}...{% endif %}</small>
+                                        {% else %}
+                                            <span class="text-muted">No comments</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="text-muted">No feedback responses yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Previous Messages -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Previous Messages</h6>
+            </div>
+            <div class="card-body">
+                {% if messages %}
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Title</th>
+                                    <th>Type</th>
+                                    <th>Status</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for message in messages %}
+                                <tr>
+                                    <td>{{ message.title }}</td>
+                                    <td>
+                                        <span class="badge 
+                                            {% if message.message_type == 'thank_you' %}bg-success
+                                            {% elif message.message_type == 'feedback_request' %}bg-primary
+                                            {% else %}bg-info{% endif %}">
+                                            {{ message.message_type|replace('_', ' ')|title }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if message.is_active %}
+                                            <span class="badge bg-success">Active</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Inactive</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ message.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                    <td>
+                                        <form action="{{ url_for('admin_delete_feedback_message', message_id=message.id) }}" 
+                                              method="post" class="d-inline">
+                                            <button type="submit" class="btn btn-danger btn-sm" 
+                                                    onclick="return confirm('Delete this message?')">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="text-muted">No previous messages.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
