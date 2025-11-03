@@ -49,13 +49,13 @@ class User(db.Model):
     password_hash = db.Column(db.String(200), nullable=False)
     department = db.Column(db.String(100), default='Computer Science')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    is_active = db.Column(db.Boolean, default=True)
+    is_admin = db.Column(db.Boolean, default=False)
     
     # Relationships
     saved_records = db.relationship('SavedRecord', backref='user', lazy=True, cascade='all, delete-orphan')
     final_gpa_records = db.relationship('FinalGPARecord', backref='user', lazy=True, cascade='all, delete-orphan')
     save_actions = db.relationship('SaveAction', backref='user', lazy=True, cascade='all, delete-orphan')
-    feedbacks = db.relationship('Feedback', backref='user', lazy=True, cascade='all, delete-orphan')
+    feedback_responses = db.relationship('FeedbackResponse', backref='user', lazy=True, cascade='all, delete-orphan')
 
 class SavedRecord(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -86,20 +86,24 @@ class SaveAction(db.Model):
     details = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-class Feedback(db.Model):
+class FeedbackMessage(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    message_type = db.Column(db.String(50), default='thank_you')  # thank_you, feedback_request, etc.
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_active = db.Column(db.Boolean, default=True)
+
+class FeedbackResponse(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    rating = db.Column(db.String(20), nullable=False)  # excellent, good, average, poor
-    message = db.Column(db.Text)
+    feedback_message_id = db.Column(db.Integer, db.ForeignKey('feedback_message.id'), nullable=False)
+    rating = db.Column(db.String(50))  # excellent, good, average, poor
+    comments = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-# Admin credentials
-ADMIN_CREDENTIALS = {
-    'student_id': '584870',
-    'password': 'codex222',
-    'name': 'Kanja Kamara',
-    'department': 'Computer Science'
-}
+    
+    # Relationship
+    feedback_message = db.relationship('FeedbackMessage', backref='responses')
 
 def init_db():
     with app.app_context():
@@ -111,14 +115,15 @@ def init_db():
             db.create_all()
             
             # Create admin user if not exists
-            admin_user = User.query.filter_by(student_id=ADMIN_CREDENTIALS['student_id']).first()
+            admin_user = User.query.filter_by(student_id='584870').first()
             if not admin_user:
-                admin_password_hash = generate_password_hash(ADMIN_CREDENTIALS['password'])
+                admin_password_hash = generate_password_hash('codex222')
                 admin_user = User(
-                    student_id=ADMIN_CREDENTIALS['student_id'],
-                    name=ADMIN_CREDENTIALS['name'],
+                    student_id='584870',
+                    name='Kanja Kamara',
                     password_hash=admin_password_hash,
-                    department=ADMIN_CREDENTIALS['department']
+                    department='Computer Science',
+                    is_admin=True
                 )
                 db.session.add(admin_user)
                 db.session.commit()
@@ -157,8 +162,8 @@ def admin_required(f):
             return redirect(url_for('welcome'))
         
         user = User.query.get(session['user_id'])
-        if not user or user.student_id != ADMIN_CREDENTIALS['student_id']:
-            flash('Access denied. Admin privileges required.', 'error')
+        if not user or not user.is_admin:
+            flash('Admin access required', 'error')
             return redirect(url_for('dashboard'))
         
         return f(*args, **kwargs)
@@ -195,30 +200,7 @@ def format_datetime(dt):
 
 @app.route('/')
 def welcome():
-    # Check if admin is trying to login
-    if session.get('is_admin_login'):
-        return render_template('admin_login.html')
     return render_template('login.html')
-
-@app.route('/admin-login', methods=['GET', 'POST'])
-def admin_login():
-    if request.method == 'POST':
-        student_id = request.form.get('student_id')
-        password = request.form.get('password')
-        
-        if student_id == ADMIN_CREDENTIALS['student_id'] and password == ADMIN_CREDENTIALS['password']:
-            user = User.query.filter_by(student_id=student_id).first()
-            if user:
-                session['user_id'] = user.id
-                session['student_id'] = user.student_id
-                session['student_name'] = user.name
-                session['is_admin'] = True
-                flash('Admin login successful!', 'success')
-                return redirect(url_for('admin_dashboard'))
-        
-        flash('Invalid admin credentials', 'error')
-    
-    return render_template('admin_login.html')
 
 @app.route('/health')
 def health_check():
@@ -244,27 +226,20 @@ def login():
     student_id = request.form.get('student_id')
     password = request.form.get('password')
     
-    # Check if admin login
-    if student_id == ADMIN_CREDENTIALS['student_id'] and password == ADMIN_CREDENTIALS['password']:
-        user = User.query.filter_by(student_id=student_id).first()
-        if user:
-            session['user_id'] = user.id
-            session['student_id'] = user.student_id
-            session['student_name'] = user.name
-            session['is_admin'] = True
-            flash('Admin login successful!', 'success')
-            return redirect(url_for('admin_dashboard'))
-    
-    # Regular student login
-    user = User.query.filter_by(student_id=student_id, is_active=True).first()
+    user = User.query.filter_by(student_id=student_id).first()
     
     if user and check_password_hash(user.password_hash, password):
         session['user_id'] = user.id
         session['student_id'] = user.student_id
         session['student_name'] = user.name
-        session['is_admin'] = False
-        flash('Login successful!', 'success')
-        return redirect(url_for('dashboard'))
+        session['is_admin'] = user.is_admin
+        
+        if user.is_admin:
+            flash('Admin login successful!', 'success')
+            return redirect(url_for('admin_dashboard'))
+        else:
+            flash('Login successful!', 'success')
+            return redirect(url_for('dashboard'))
     else:
         flash('Invalid student ID or password', 'error')
         return redirect(url_for('welcome'))
@@ -278,11 +253,6 @@ def signup():
         password = request.form.get('password')
         confirm_password = request.form.get('confirm_password')
         
-        # Prevent admin ID registration
-        if student_id == ADMIN_CREDENTIALS['student_id']:
-            flash('This student ID is reserved for administration', 'error')
-            return render_template('signup.html')
-        
         if not all([name, student_id, department, password, confirm_password]):
             flash('Please fill in all required fields', 'error')
             return render_template('signup.html')
@@ -293,6 +263,11 @@ def signup():
         
         if not department.strip():
             flash('Please enter your department name', 'error')
+            return render_template('signup.html')
+        
+        # Prevent using admin ID
+        if student_id == '584870':
+            flash('This student ID is reserved', 'error')
             return render_template('signup.html')
         
         existing_user = User.query.filter_by(student_id=student_id).first()
@@ -323,155 +298,19 @@ def dashboard():
         return redirect(url_for('admin_dashboard'))
     
     user = User.query.get(session['user_id'])
-    return render_template('dashboard.html', user=user)
-
-# =============================================================================
-# ADMIN ROUTES
-# =============================================================================
-
-@app.route('/admin')
-@admin_required
-def admin_dashboard():
-    # Get statistics
-    total_users = User.query.filter(User.student_id != ADMIN_CREDENTIALS['student_id']).count()
-    active_users = User.query.filter_by(is_active=True).filter(User.student_id != ADMIN_CREDENTIALS['student_id']).count()
-    total_records = SavedRecord.query.count()
-    total_feedbacks = Feedback.query.count()
     
-    # Get recent users
-    recent_users = User.query.filter(User.student_id != ADMIN_CREDENTIALS['student_id']).order_by(User.created_at.desc()).limit(10).all()
+    # Check for active feedback messages
+    active_feedback = FeedbackMessage.query.filter_by(is_active=True).first()
+    has_feedback = active_feedback is not None
     
-    # Get recent feedbacks
-    recent_feedbacks = Feedback.query.order_by(Feedback.created_at.desc()).limit(5).all()
-    
-    return render_template('admin_dashboard.html',
-                         total_users=total_users,
-                         active_users=active_users,
-                         total_records=total_records,
-                         total_feedbacks=total_feedbacks,
-                         recent_users=recent_users,
-                         recent_feedbacks=recent_feedbacks)
-
-@app.route('/admin/users')
-@admin_required
-def admin_users():
-    users = User.query.filter(User.student_id != ADMIN_CREDENTIALS['student_id']).order_by(User.created_at.desc()).all()
-    return render_template('admin_users.html', users=users)
-
-@app.route('/admin/delete-user/<int:user_id>', methods=['POST'])
-@admin_required
-def admin_delete_user(user_id):
-    if user_id == session.get('user_id'):
-        flash('Cannot delete your own account', 'error')
-        return redirect(url_for('admin_users'))
-    
-    user = User.query.get(user_id)
-    if user and user.student_id != ADMIN_CREDENTIALS['student_id']:
-        # Soft delete (deactivate)
-        user.is_active = False
-        db.session.commit()
-        flash(f'User {user.name} ({user.student_id}) has been deactivated', 'success')
-    else:
-        flash('User not found', 'error')
-    
-    return redirect(url_for('admin_users'))
-
-@app.route('/admin/activate-user/<int:user_id>', methods=['POST'])
-@admin_required
-def admin_activate_user(user_id):
-    user = User.query.get(user_id)
-    if user and user.student_id != ADMIN_CREDENTIALS['student_id']:
-        user.is_active = True
-        db.session.commit()
-        flash(f'User {user.name} ({user.student_id}) has been activated', 'success')
-    else:
-        flash('User not found', 'error')
-    
-    return redirect(url_for('admin_users'))
-
-@app.route('/admin/send-message', methods=['POST'])
-@admin_required
-def admin_send_message():
-    message_type = request.form.get('message_type')
-    custom_message = request.form.get('custom_message', '')
-    
-    if message_type == 'thank_you':
-        message = "Thank you for using MMTU GPA Insite! We appreciate your trust in our system."
-    elif message_type == 'feedback_request':
-        message = "We'd love to hear your feedback about MMTU GPA Insite. Please share your experience with us!"
-    elif message_type == 'custom' and custom_message:
-        message = custom_message
-    else:
-        flash('Please select a valid message type', 'error')
-        return redirect(url_for('admin_dashboard'))
-    
-    # In a real application, you would send this message via email or notification system
-    # For now, we'll just log it and show a success message
-    
-    print(f"📢 Admin message to all users: {message}")
-    flash('Message has been prepared for sending to all users!', 'success')
-    return redirect(url_for('admin_dashboard'))
-
-@app.route('/admin/feedbacks')
-@admin_required
-def admin_feedbacks():
-    feedbacks = Feedback.query.order_by(Feedback.created_at.desc()).all()
-    return render_template('admin_feedbacks.html', feedbacks=feedbacks)
-
-# =============================================================================
-# STUDENT FEEDBACK ROUTES
-# =============================================================================
-
-@app.route('/feedback')
-@login_required
-def feedback_page():
-    if session.get('is_admin'):
-        return redirect(url_for('admin_dashboard'))
-    return render_template('feedback.html')
-
-@app.route('/submit-feedback', methods=['POST'])
-@login_required
-def submit_feedback():
-    if session.get('is_admin'):
-        return jsonify({'success': False, 'message': 'Admins cannot submit feedback'}), 400
-    
-    rating = request.form.get('rating')
-    message = request.form.get('message', '')
-    
-    if not rating:
-        return jsonify({'success': False, 'message': 'Please select a rating'}), 400
-    
-    # Check if user already submitted feedback today
-    today = datetime.utcnow().date()
-    existing_feedback = Feedback.query.filter(
-        Feedback.user_id == session['user_id'],
-        db.func.date(Feedback.created_at) == today
-    ).first()
-    
-    if existing_feedback:
-        return jsonify({'success': False, 'message': 'You have already submitted feedback today'}), 400
-    
-    new_feedback = Feedback(
-        user_id=session['user_id'],
-        rating=rating,
-        message=message
-    )
-    
-    db.session.add(new_feedback)
-    db.session.commit()
-    
-    return jsonify({'success': True, 'message': 'Thank you for your feedback!'})
-
-# =============================================================================
-# EXISTING GPA CALCULATION ROUTES (UNCHANGED)
-# =============================================================================
+    return render_template('dashboard.html', user=user, has_feedback=has_feedback)
 
 @app.route('/set-modules', methods=['GET', 'POST'])
 @login_required
 def set_modules():
     if session.get('is_admin'):
         return redirect(url_for('admin_dashboard'))
-    
+        
     if request.method == 'POST':
         num_modules = int(request.form.get('num_modules', 1))
         if 1 <= num_modules <= 12:
@@ -486,7 +325,7 @@ def set_modules():
 def modules_input():
     if session.get('is_admin'):
         return redirect(url_for('admin_dashboard'))
-    
+        
     num_modules = session.get('num_modules', 1)
     return render_template('modules_input.html', num_modules=num_modules)
 
@@ -494,8 +333,8 @@ def modules_input():
 @login_required
 def calculate():
     if session.get('is_admin'):
-        return jsonify({'success': False, 'message': 'Admins cannot calculate GPA'}), 400
-    
+        return jsonify({'error': 'Admin access only'}), 403
+        
     data = request.get_json()
     modules = data.get('modules', [])
     
@@ -559,7 +398,7 @@ def calculate():
 def result():
     if session.get('is_admin'):
         return redirect(url_for('admin_dashboard'))
-    
+        
     calculation = session.get('last_calculation')
     if not calculation:
         flash('No calculation found. Please calculate your GPA first.', 'error')
@@ -570,8 +409,8 @@ def result():
 @login_required
 def save_result():
     if session.get('is_admin'):
-        return jsonify({'success': False, 'message': 'Admins cannot save GPA records'}), 400
-    
+        return jsonify({'error': 'Admin access only'}), 403
+        
     calculation = session.get('last_calculation')
     if not calculation:
         return jsonify({'success': False, 'message': 'No calculation to save'}), 400
@@ -613,7 +452,7 @@ def save_result():
 def saved_records():
     if session.get('is_admin'):
         return redirect(url_for('admin_dashboard'))
-    
+        
     try:
         records = SavedRecord.query.filter_by(user_id=session['user_id']).order_by(SavedRecord.created_at.desc()).all()
         
@@ -644,7 +483,7 @@ def saved_records():
 def view_record(record_id):
     if session.get('is_admin'):
         return redirect(url_for('admin_dashboard'))
-    
+        
     try:
         record = SavedRecord.query.filter_by(id=record_id, user_id=session['user_id']).first()
         
@@ -676,7 +515,7 @@ def view_record(record_id):
 def delete_record(record_id):
     if session.get('is_admin'):
         return redirect(url_for('admin_dashboard'))
-    
+        
     record = SavedRecord.query.filter_by(id=record_id, user_id=session['user_id']).first()
     
     if not record:
@@ -701,8 +540,8 @@ def delete_record(record_id):
 @login_required
 def profile():
     if session.get('is_admin'):
-        return redirect(url_for('admin_dashboard'))
-    
+        return redirect(url_for('admin_profile'))
+        
     user = User.query.get(session['user_id'])
     
     if request.method == 'POST':
@@ -737,12 +576,18 @@ def profile():
     
     return render_template('profile.html', user=user)
 
+@app.route('/logout')
+def logout():
+    session.clear()
+    flash('Logged out successfully', 'success')
+    return redirect(url_for('welcome'))
+
 @app.route('/final-calculation')
 @login_required
 def final_calculation():
     if session.get('is_admin'):
         return redirect(url_for('admin_dashboard'))
-    
+        
     try:
         saved_records = SavedRecord.query.filter_by(user_id=session['user_id']).order_by(SavedRecord.created_at.desc()).all()
         
@@ -766,8 +611,8 @@ def final_calculation():
 @login_required
 def calculate_final_gpa():
     if session.get('is_admin'):
-        return jsonify({'success': False, 'message': 'Admins cannot calculate GPA'}), 400
-    
+        return jsonify({'error': 'Admin access only'}), 403
+        
     try:
         data = request.get_json()
         print(f"🔍 Debug: Received data for final GPA: {data}")
@@ -848,8 +693,8 @@ def calculate_final_gpa():
 @login_required
 def save_final_gpa():
     if session.get('is_admin'):
-        return jsonify({'success': False, 'message': 'Admins cannot save GPA records'}), 400
-    
+        return jsonify({'error': 'Admin access only'}), 403
+        
     try:
         calculation = session.get('final_calculation')
         if not calculation:
@@ -895,7 +740,7 @@ def save_final_gpa():
 def final_records():
     if session.get('is_admin'):
         return redirect(url_for('admin_dashboard'))
-    
+        
     try:
         records = FinalGPARecord.query.filter_by(user_id=session['user_id']).order_by(FinalGPARecord.created_at.desc()).all()
         
@@ -925,7 +770,7 @@ def final_records():
 def delete_final_record(record_id):
     if session.get('is_admin'):
         return redirect(url_for('admin_dashboard'))
-    
+        
     record = FinalGPARecord.query.filter_by(id=record_id, user_id=session['user_id']).first()
     
     if not record:
@@ -946,11 +791,218 @@ def delete_final_record(record_id):
     flash('Final record deleted successfully', 'success')
     return redirect(url_for('final_records'))
 
-@app.route('/logout')
-def logout():
-    session.clear()
-    flash('Logged out successfully', 'success')
-    return redirect(url_for('welcome'))
+# =============================================================================
+# ADMIN ROUTES
+# =============================================================================
+
+@app.route('/admin')
+@admin_required
+def admin_dashboard():
+    # Get statistics
+    total_users = User.query.filter_by(is_admin=False).count()
+    total_records = SavedRecord.query.count()
+    total_final_records = FinalGPARecord.query.count()
+    recent_users = User.query.filter_by(is_admin=False).order_by(User.created_at.desc()).limit(5).all()
+    
+    # Get feedback statistics
+    feedback_responses = FeedbackResponse.query.count()
+    rating_counts = {
+        'excellent': FeedbackResponse.query.filter_by(rating='excellent').count(),
+        'good': FeedbackResponse.query.filter_by(rating='good').count(),
+        'average': FeedbackResponse.query.filter_by(rating='average').count(),
+        'poor': FeedbackResponse.query.filter_by(rating='poor').count()
+    }
+    
+    return render_template('admin/dashboard.html',
+                         total_users=total_users,
+                         total_records=total_records,
+                         total_final_records=total_final_records,
+                         recent_users=recent_users,
+                         feedback_responses=feedback_responses,
+                         rating_counts=rating_counts)
+
+@app.route('/admin/users')
+@admin_required
+def admin_users():
+    users = User.query.filter_by(is_admin=False).order_by(User.created_at.desc()).all()
+    return render_template('admin/users.html', users=users)
+
+@app.route('/admin/delete-user/<int:user_id>', methods=['POST'])
+@admin_required
+def admin_delete_user(user_id):
+    if user_id == session['user_id']:
+        flash('Cannot delete your own account', 'error')
+        return redirect(url_for('admin_users'))
+    
+    user = User.query.get(user_id)
+    if not user:
+        flash('User not found', 'error')
+        return redirect(url_for('admin_users'))
+    
+    # Log the delete action
+    new_action = SaveAction(
+        user_id=session['user_id'],
+        action='admin_delete_user',
+        details=f"Admin deleted user: {user.name} ({user.student_id})"
+    )
+    
+    db.session.add(new_action)
+    db.session.delete(user)
+    db.session.commit()
+    
+    flash(f'User {user.name} deleted successfully', 'success')
+    return redirect(url_for('admin_users'))
+
+@app.route('/admin/feedback')
+@admin_required
+def admin_feedback():
+    # Get active feedback message
+    active_message = FeedbackMessage.query.filter_by(is_active=True).first()
+    
+    # Get all feedback responses with user info
+    responses = FeedbackResponse.query.order_by(FeedbackResponse.created_at.desc()).all()
+    
+    # Get all feedback messages
+    messages = FeedbackMessage.query.order_by(FeedbackMessage.created_at.desc()).all()
+    
+    return render_template('admin/feedback.html',
+                         active_message=active_message,
+                         responses=responses,
+                         messages=messages)
+
+@app.route('/admin/send-feedback', methods=['POST'])
+@admin_required
+def admin_send_feedback():
+    title = request.form.get('title')
+    message = request.form.get('message')
+    message_type = request.form.get('message_type', 'thank_you')
+    
+    if not title or not message:
+        flash('Title and message are required', 'error')
+        return redirect(url_for('admin_feedback'))
+    
+    # Deactivate any existing active message
+    FeedbackMessage.query.update({'is_active': False})
+    
+    # Create new feedback message
+    new_message = FeedbackMessage(
+        title=title,
+        message=message,
+        message_type=message_type,
+        is_active=True
+    )
+    
+    db.session.add(new_message)
+    
+    # Log the action
+    new_action = SaveAction(
+        user_id=session['user_id'],
+        action='send_feedback_message',
+        details=f"Admin sent feedback message: {title}"
+    )
+    
+    db.session.add(new_action)
+    db.session.commit()
+    
+    flash('Feedback message sent to all users!', 'success')
+    return redirect(url_for('admin_feedback'))
+
+@app.route('/admin/end-feedback', methods=['POST'])
+@admin_required
+def admin_end_feedback():
+    # Deactivate all active messages
+    FeedbackMessage.query.update({'is_active': False})
+    db.session.commit()
+    
+    flash('Feedback session ended', 'success')
+    return redirect(url_for('admin_feedback'))
+
+@app.route('/admin/delete-feedback-message/<int:message_id>', methods=['POST'])
+@admin_required
+def admin_delete_feedback_message(message_id):
+    message = FeedbackMessage.query.get(message_id)
+    if not message:
+        flash('Message not found', 'error')
+        return redirect(url_for('admin_feedback'))
+    
+    db.session.delete(message)
+    db.session.commit()
+    
+    flash('Feedback message deleted', 'success')
+    return redirect(url_for('admin_feedback'))
+
+@app.route('/admin/profile')
+@admin_required
+def admin_profile():
+    user = User.query.get(session['user_id'])
+    return render_template('admin/profile.html', user=user)
+
+# =============================================================================
+# FEEDBACK ROUTES (FOR STUDENTS)
+# =============================================================================
+
+@app.route('/feedback')
+@login_required
+def feedback():
+    if session.get('is_admin'):
+        return redirect(url_for('admin_dashboard'))
+        
+    # Get active feedback message
+    active_message = FeedbackMessage.query.filter_by(is_active=True).first()
+    
+    if not active_message:
+        flash('No active feedback request at the moment', 'info')
+        return redirect(url_for('dashboard'))
+    
+    # Check if user already responded
+    existing_response = FeedbackResponse.query.filter_by(
+        user_id=session['user_id'],
+        feedback_message_id=active_message.id
+    ).first()
+    
+    if existing_response:
+        flash('You have already submitted feedback for this message', 'info')
+        return redirect(url_for('dashboard'))
+    
+    return render_template('feedback.html', message=active_message)
+
+@app.route('/submit-feedback', methods=['POST'])
+@login_required
+def submit_feedback():
+    if session.get('is_admin'):
+        return jsonify({'error': 'Admin access only'}), 403
+        
+    rating = request.form.get('rating')
+    comments = request.form.get('comments', '')
+    message_id = request.form.get('message_id')
+    
+    if not rating or not message_id:
+        flash('Please provide a rating', 'error')
+        return redirect(url_for('feedback'))
+    
+    # Check if already responded
+    existing_response = FeedbackResponse.query.filter_by(
+        user_id=session['user_id'],
+        feedback_message_id=message_id
+    ).first()
+    
+    if existing_response:
+        flash('You have already submitted feedback', 'error')
+        return redirect(url_for('dashboard'))
+    
+    # Save feedback response
+    new_response = FeedbackResponse(
+        user_id=session['user_id'],
+        feedback_message_id=message_id,
+        rating=rating,
+        comments=comments
+    )
+    
+    db.session.add(new_response)
+    db.session.commit()
+    
+    flash('Thank you for your feedback!', 'success')
+    return redirect(url_for('dashboard'))
 
 if __name__ == '__main__':
     app.run(debug=True)
